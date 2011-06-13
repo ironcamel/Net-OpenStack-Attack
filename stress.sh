@@ -7,12 +7,12 @@ function do_option {
         create_servers)
             for ((i=1; i<=$2; i++));
             do
-                `./curl.sh -U servers -f body.txt`
+                ./curl.sh -U servers -f body.txt
             done
             ;;
 
         delete_server)
-            `./curl.sh -U servers/$2 -X DELETE`
+            ./curl.sh -U servers/$2 -X DELETE -v
             ;;
 
         *)
