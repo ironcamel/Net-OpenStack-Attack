@@ -11,6 +11,13 @@ function do_option {
             done
             ;;
 
+        delete_servers)
+            for ((i=1; i<=$2; i++));
+            do
+                ./curl.sh -U servers/$i -X DELETE -v
+            done
+            ;;
+
         delete_server)
             ./curl.sh -U servers/$2 -X DELETE -v
             ;;
