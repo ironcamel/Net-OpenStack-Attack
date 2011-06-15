@@ -2,10 +2,10 @@
 use 5.10.0;
 use strict;
 use warnings;
-use AnyEvent::HTTP;
 use Data::Dumper;
-use LWP;
+use HTTP::Async;
 use HTTP::Request;
+use LWP;
 use JSON qw(from_json to_json);
 
 my ($action, $num_runs) = @ARGV;
@@ -25,25 +25,24 @@ my $res = $ua->get($base_url,
     'X-Auth-User' => $ENV{NOVA_USERNAME},
 );  
 my $token = $res->headers->header('x-auth-token');
-my $auth_head = {headers => {
+$ua->default_header('X-Auth-Token' => $token);
+my $auth_headers = [
     "x-auth-token" => $token,
     "content-type" => "application/json"
-}};
-
+];
 
 ########################
-# BODY CREATE JSON
+# CREATE BODY JSON
 ########################
 my $create_body = to_json({
-        server => {
-            name     => 'test-server',
-            imageRef  => '3',
-            flavorRef => '1',
-        }
-    });
+    server => {
+        name     => 'test-server',
+        imageRef  => '3',
+        flavorRef => '1',
+    }
+});
 
-
-my $c1 = AnyEvent->condvar;
+my $async = HTTP::Async->new;
 
 given ($action){
     ########################
@@ -53,58 +52,52 @@ given ($action){
         my ($successes, $failures, @errmsgs) = (0, 0);
         say "Creating $num_runs servers...";
         for my $i (1 .. $num_runs) {
-            $c1->begin;
-            http_post "$base_url/servers", $create_body, %$auth_head, sub {
-                my ($body, $headers) = @_;
-                if ($headers->{Status} =~ /^2/){
-                    $successes++;
-                }else{
-                    $failures++;
-                    push @errmsgs, Dumper($headers);
-                };
-                $c1->end;
-            };
+            my $req = HTTP::Request->new(
+                POST => "$base_url/servers", $auth_headers, $create_body);
+            $async->add($req);
         }
-        $c1->recv;
+        while (my $res = $async->wait_for_next_response) {
+            if ($res->status_line =~ /^2/){
+                $successes++;
+            } else {
+                $failures++;
+                push @errmsgs, $res->content;
+            }
+        }
         say "Successes: $successes Failures: $failures.";
-        say Dumper(@errmsgs) if @errmsgs;
+        say Dumper(\@errmsgs) if @errmsgs;
     }
-
     ########################
     # DELETE SERVERS
     ########################
     when ("delete_servers") {
-        $c1->begin;
         my ($successes, $failures, @errmsgs) = (0, 0);
-        http_get "$base_url/servers", %$auth_head, sub {
-            my ($body, $headers) = @_;
-            die "Error getting server list" 
-                unless $headers->{Status} =~ /^2/;
-            $body = from_json $body;
-            my @servers = @{ $body->{servers} };
-            my $num_servers = @servers;
-            say "Deleting $num_servers servers...";
-            foreach my $server (@servers){
-                $c1->begin;
-                my $id = $server->{id};
-                http_request "DELETE", "$base_url/servers/$id", %$auth_head,
-                sub {
-                    my ($body, $headers) = @_;
-                    if($headers->{Status} =~ /^2/){
-                        $successes++;
-                    } else {
-                        $failures++;
-                        push @errmsgs, Dumper($headers);
-                    }
-                    $c1->end;
+        my $res = $ua->get("$base_url/servers", $auth_headers);
+        die "Error getting server list" unless $res->status_line =~ /^2/;
+        my $data = from_json($res->content);
+        my @servers = @{ $data->{servers} };
+        my $num_servers = @servers;
+        say "Deleting $num_servers servers...";
+        foreach my $server (@servers){
+            my $id = $server->{id};
+            my $req = HTTP::Request->new(
+                DELETE => "$base_url/servers/$id", $auth_headers);
+            $async->add($req);
+            while (my $res = $async->wait_for_next_response) {
+                if ($res->status_line =~ /^2/) {
+                    $successes++;
+                } else {
+                    $failures++;
+                    push @errmsgs, $res->content;
                 }
             }
-            $c1->end;
-        };
+        }
 
-        $c1->recv;
         say "Successes: $successes Failures: $failures";
-        say Dumper(@errmsgs) if @errmsgs;
+        say Dumper(\@errmsgs) if @errmsgs;
+    }
+    default {
+        say "unknown command $_";
     }
 }
 
