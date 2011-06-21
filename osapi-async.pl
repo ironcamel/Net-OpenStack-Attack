@@ -134,6 +134,25 @@ given ($action){
         say "Successes: $successes Failures: $failures.";
         #say Dumper(\@errmsgs) if @errmsgs;
     }
+    when ("servers") {
+        my ($successes, $failures, @errmsgs) = (0, 0);
+        say "Sending $num_runs /servers requests...";
+        for my $i (1 .. $num_runs) {
+            my $req = HTTP::Request->new(
+                GET => "$base_url/servers", $auth_headers, $create_body);
+            $async->add($req);
+        }
+        while (my $res = $async->wait_for_next_response) {
+            if ($res->status_line =~ /^2/){
+                $successes++;
+            } else {
+                $failures++;
+                push @errmsgs, $res->content;
+            }
+        }
+        say "Successes: $successes Failures: $failures.";
+        #say Dumper(\@errmsgs) if @errmsgs;
+    }
     default {
         say "unknown command $_";
     }
