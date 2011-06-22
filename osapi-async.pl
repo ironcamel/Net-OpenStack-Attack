@@ -26,8 +26,6 @@ sub pre_process
     $num_runs ||= 1;
     $c->stash->{num_runs} = $num_runs;
 
-    $c->stash->{async} = HTTP::Async->new;
-    $c->stash->{ua} = LWP::UserAgent->new();
 
     my $base_url = $ENV{NOVA_URL};
     $base_url =~ s(/$)();       # Remove trailing slash
@@ -35,7 +33,9 @@ sub pre_process
     $c->stash->{base_url} = $base_url;
 
     # Get the Auth Token
-    my $res = $c->stash->{ua}->get($base_url,
+    my $ua = LWP::UserAgent->new();
+    my $res = $ua->get(
+        $base_url,
         'X-Auth-Key'  => $ENV{NOVA_API_KEY},
         'X-Auth-User' => $ENV{NOVA_USERNAME},
     );  
@@ -46,6 +46,7 @@ sub pre_process
         "content-type" => "application/json"
     ];
 
+    # Create body json
     $c->stash->{create_body_json} = to_json({
         server => {
             name     => 'test-server',
@@ -68,7 +69,23 @@ App::Rad->run();
 
 sub make_requests 
 {
-    #my ($url, $headers, $body) = 
+    my ($num_reqs, $method, $url, $headers, $body) = @_;
+    my ($successes, $failures, @errmsgs) = (0, 0);
+    my $async = HTTP::Async->new;
+
+    for my $i (1 .. $num_reqs) {
+        my $req = HTTP::Request->new($method => $url, $headers, $body);
+        $async->add($req);
+    }
+    while (my $res = $async->wait_for_next_response) {
+        if ($res->status_line =~ /^2/){
+            $successes++;
+        } else {
+            $failures++;
+            push @errmsgs, $res->content;
+        }
+    }
+    return [$successes, $failures];
 
 }
 
@@ -78,134 +95,90 @@ sub make_requests
 sub create_servers 
 {
     my $c = shift;
-    my $async = $c->stash->{async};
-    my $num_runs = $c->stash->{num_runs};
     my $base_url = $c->stash->{base_url};
-    my ($successes, $failures, @errmsgs) = (0, 0);
 
-    say "Creating $num_runs servers...";
-    for my $i (1 .. $num_runs) {
-        my $req = HTTP::Request->new(
-            POST => "$base_url/servers", 
-            $c->stash->{auth_headers}, 
-            $c->stash->{create_body_json});
-        $async->add($req);
-    }
-    while (my $res = $async->wait_for_next_response) {
-        if ($res->status_line =~ /^2/){
-            $successes++;
-        } else {
-            $failures++;
-            push @errmsgs, $res->content;
-        }
-    }
-    return [$successes, $failures];
+    say "Creating $c->stash->{num_runs} servers...";
+    return make_requests(
+        $c->stash->{num_runs},
+        "POST", 
+        "$base_url/servers", 
+        $c->stash->{auth_headers}, 
+        $c->stash->{create_body_json}
+    );
 }
 
 sub delete_servers 
 {
     my $c = shift;
-    my $async = $c->stash->{async};
-    my $num_runs = $c->stash->{num_runs};
-    my $ua = $c->stash->{ua};
     my $base_url = $c->stash->{base_url};
     my ($successes, $failures, @errmsgs) = (0, 0);
 
-    my $res = $ua->get("$base_url/servers", $c->stash->{auth_headers});
-    die "Error getting server list" unless $res->status_line =~ /^2/;
+    my $async = HTTP::Async->new;
+    my $ua = LWP::UserAgent->new();
+
+    my $res = $ua->get(
+        "$base_url/servers", 
+        'x-auth-token' => $c->stash->{auth_headers}->[1]
+    );
+    die "Error getting server list " . $res->content unless $res->status_line =~ /^2/;
+
     my $data = from_json($res->content);
     my @servers = @{ $data->{servers} };
-    my $num_servers = @servers;
-    say "Deleting $num_servers servers...";
+
+    say "Deleting " . @servers . " servers...";
     foreach my $server (@servers){
         my $id = $server->{id};
-        my $req = HTTP::Request->new(
-            DELETE => "$base_url/servers/$id", $c->stash->{auth_headers});
-        $async->add($req);
-        while (my $res = $async->wait_for_next_response) {
-            if ($res->status_line =~ /^2/) {
-                $successes++;
-            } else {
-                $failures++;
-                push @errmsgs, $res->content;
-            }
-        }
+        
+        my $reval = make_requests(
+            1,
+            "DELETE", 
+            "$base_url/servers/$id", 
+            $c->stash->{auth_headers}, 
+        );
+        $successes += $reval->[0];
+        $failures += $reval->[1];
     }
-
     return [$successes, $failures];
 }
 
 sub bad 
 {
     my $c = shift;
-    my $async = $c->stash->{async};
-    my $num_runs = $c->stash->{num_runs};
     my $base_url = $c->stash->{base_url};
-    my ($successes, $failures, @errmsgs) = (0, 0);
 
-    say "Sending $num_runs invalid requests...";
-    for my $i (1 .. $num_runs) {
-        my $req = HTTP::Request->new(
-            GET => "$base_url/invalid-resource", $c->stash->{auth_headers});
-        $async->add($req);
-    }
-    while (my $res = $async->wait_for_next_response) {
-        if ($res->status_line =~ /^2/){
-            $successes++;
-        } else {
-            $failures++;
-            push @errmsgs, $res->content;
-        }
-    }
-    return [$successes, $failures];
+    say "Sending $c->stash->{num_runs} invalid requests...";
+
+    return make_requests(
+        $c->stash->{num_runs},
+        "GET", 
+        "$base_url/invalid-resource", 
+        $c->stash->{auth_headers},
+    );
 }
 
 sub images
 {
     my $c = shift;
-    my $async = $c->stash->{async};
-    my $num_runs = $c->stash->{num_runs};
     my $base_url = $c->stash->{base_url};
-    my ($successes, $failures, @errmsgs) = (0, 0);
 
-    say "Sending $num_runs /images requests...";
-    for my $i (1 .. $num_runs) {
-        my $req = HTTP::Request->new(
-            GET => "$base_url/images", $c->stash->{auth_headers});
-        $async->add($req);
-    }
-    while (my $res = $async->wait_for_next_response) {
-        if ($res->status_line =~ /^2/){
-            $successes++;
-        } else {
-            $failures++;
-            push @errmsgs, $res->content;
-        }
-    }
-    return [$successes, $failures];
+    return make_requests(
+        $c->stash->{num_runs},
+        "GET", 
+        "$base_url/images", 
+        $c->stash->{auth_headers},
+    );
 }
 
 sub servers 
 {
     my $c = shift;
-    my $async = $c->stash->{async};
-    my $num_runs = $c->stash->{num_runs};
     my $base_url = $c->stash->{base_url};
-    my ($successes, $failures, @errmsgs) = (0, 0);
 
-    say "Sending $num_runs /servers requests...";
-    for my $i (1 .. $num_runs) {
-        my $req = HTTP::Request->new(
-            GET => "$base_url/servers", $c->stash->{auth_headers});
-        $async->add($req);
-    }
-    while (my $res = $async->wait_for_next_response) {
-        if ($res->status_line =~ /^2/){
-            $successes++;
-        } else {
-            $failures++;
-            push @errmsgs, $res->content;
-        }
-    }
-    return [$successes, $failures];
+    say "Sending $c->stash->{num_runs} /servers requests...";
+    return make_requests(
+        $c->stash->{num_runs},
+        "GET", 
+        "$base_url/servers", 
+        $c->stash->{auth_headers},
+    );
 }
