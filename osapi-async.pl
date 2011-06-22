@@ -17,11 +17,7 @@ sub setup {
         bad => 'run x number of bad/invalid requests',
         images => 'run x number of image list requests',
     });
-}
-
-sub pre_process {
-    my $c = shift;
-    my ($num_runs) = @ARGV;
+    my ($action, $num_runs) = @ARGV;
     $num_runs ||= 1;
     $c->stash->{num_runs} = $num_runs;
 
@@ -55,10 +51,14 @@ sub pre_process {
     });
 }
 
+sub pre_process {
+    my $c = shift;
+}
+
 sub post_process {
     my $c = shift;
     my $data = $c->output;
-    say "Successes: " . $data->[0] . " Failures: " . $data->[1];
+    say "Successes: $data->[0] Failures: $data->[1]";
 }
 
 App::Rad->run();
@@ -93,7 +93,7 @@ sub create_servers {
     my $c = shift;
     my $base_url = $c->stash->{base_url};
 
-    say "Creating $c->stash->{num_runs} servers...";
+    say "Creating " . $c->stash->{num_runs} . " servers...";
     return make_requests(
         $c->stash->{num_runs},
         "POST", 
@@ -140,7 +140,7 @@ sub bad {
     my $c = shift;
     my $base_url = $c->stash->{base_url};
 
-    say "Sending $c->stash->{num_runs} invalid requests...";
+    say "Sending " . $c->stash->{num_runs} . " invalid requests...";
 
     return make_requests(
         $c->stash->{num_runs},
@@ -166,7 +166,7 @@ sub servers {
     my $c = shift;
     my $base_url = $c->stash->{base_url};
 
-    say "Sending $c->stash->{num_runs} /servers requests...";
+    say "Sending " . $c->stash->{num_runs} . " /servers requests...";
     return make_requests(
         $c->stash->{num_runs},
         "GET", 
