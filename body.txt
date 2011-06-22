@@ -1,2 +1,0 @@
-{"server" : {"name" : "server_test","flavorRef" : "http://172.19.0.3:8774/v1.1/flavors/3","imageRef" :"http://glance1:9292/v1/images/3"}}
-
