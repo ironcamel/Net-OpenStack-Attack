@@ -17,6 +17,7 @@ sub setup {
         bad => 'run x number of bad/invalid requests',
         images => 'run x number of image list requests',
     });
+
     my ($action, $num_runs) = @ARGV;
     $num_runs ||= 1;
     $c->stash->{num_runs} = $num_runs;
