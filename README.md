@@ -10,8 +10,8 @@ This will run the specified `[command]` `[num]` times.
 
 Current commands available are:
 
-* create_servers
-* delete_servers
-* servers
-* images
-* bad
+* __create_servers__ - create servers
+* __delete_servers__ - delete all servers
+* __servers__ - server list requests
+* __images__ - image list requests
+* __bad__ - invalid requests
