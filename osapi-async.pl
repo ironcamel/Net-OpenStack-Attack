@@ -26,6 +26,7 @@ sub pre_process
     $num_runs ||= 1;
     $c->stash->{num_runs} = $num_runs;
 
+    $c->stash->{async} = HTTP::Async->new;
     $c->stash->{ua} = LWP::UserAgent->new();
 
     my $base_url = $ENV{NOVA_URL};
@@ -33,14 +34,15 @@ sub pre_process
     $base_url =~ s/v1\.0/v1.1/; # Switch to version 1.1
     $c->stash->{base_url} = $base_url;
 
+    # Get the Auth Token
     my $res = $c->stash->{ua}->get($base_url,
         'X-Auth-Key'  => $ENV{NOVA_API_KEY},
         'X-Auth-User' => $ENV{NOVA_USERNAME},
     );  
-    my $token = $res->headers->header('x-auth-token');
-    $c->stash->{ua}->default_header('X-Auth-Token' => $token);
+
+    # Store auth_headers
     $c->stash->{auth_headers} = [
-        "x-auth-token" => $token,
+        "x-auth-token" => $res->header('x-auth-token'),
         "content-type" => "application/json"
     ];
 
@@ -51,11 +53,24 @@ sub pre_process
             flavorRef => '1',
         }
     });
-    $c->stash->{async} = HTTP::Async->new;
+}
+
+sub post_process
+{
+    my $c = shift;
+    my $data = $c->output;
+    say "Successes: " . $data->[0] . " Failures: " . $data->[1];
 }
 
 App::Rad->run();
 
+#---------- Helpers -----------------------------------------------------------
+
+sub make_requests 
+{
+    #my ($url, $headers, $body) = 
+
+}
 
 #---------- Commands ----------------------------------------------------------
 
@@ -84,7 +99,7 @@ sub create_servers
             push @errmsgs, $res->content;
         }
     }
-    return "Successes: $successes Failures: $failures.";
+    return [$successes, $failures];
 }
 
 sub delete_servers 
@@ -117,7 +132,7 @@ sub delete_servers
         }
     }
 
-    return "Successes: $successes Failures: $failures";
+    return [$successes, $failures];
 }
 
 sub bad 
@@ -142,7 +157,7 @@ sub bad
             push @errmsgs, $res->content;
         }
     }
-    return "Successes: $successes Failures: $failures.";
+    return [$successes, $failures];
 }
 
 sub images
@@ -167,7 +182,7 @@ sub images
             push @errmsgs, $res->content;
         }
     }
-    return "Successes: $successes Failures: $failures.";
+    return [$successes, $failures];
 }
 
 sub servers 
@@ -192,5 +207,5 @@ sub servers
             push @errmsgs, $res->content;
         }
     }
-    return "Successes: $successes Failures: $failures.";
+    return [$successes, $failures];
 }
