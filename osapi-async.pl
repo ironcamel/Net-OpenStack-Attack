@@ -19,8 +19,7 @@ sub setup {
     });
 }
 
-sub pre_process
-{
+sub pre_process {
     my $c = shift;
     my ($num_runs) = @ARGV;
     $num_runs ||= 1;
@@ -56,8 +55,7 @@ sub pre_process
     });
 }
 
-sub post_process
-{
+sub post_process {
     my $c = shift;
     my $data = $c->output;
     say "Successes: " . $data->[0] . " Failures: " . $data->[1];
@@ -67,8 +65,7 @@ App::Rad->run();
 
 #---------- Helpers -----------------------------------------------------------
 
-sub make_requests 
-{
+sub make_requests {
     my ($num_reqs, $method, $url, $headers, $body) = @_;
     my ($successes, $failures, @errmsgs) = (0, 0);
     my $async = HTTP::Async->new;
@@ -92,8 +89,7 @@ sub make_requests
 #---------- Commands ----------------------------------------------------------
 
 
-sub create_servers 
-{
+sub create_servers {
     my $c = shift;
     my $base_url = $c->stash->{base_url};
 
@@ -107,8 +103,7 @@ sub create_servers
     );
 }
 
-sub delete_servers 
-{
+sub delete_servers {
     my $c = shift;
     my $base_url = $c->stash->{base_url};
     my ($successes, $failures, @errmsgs) = (0, 0);
@@ -141,8 +136,7 @@ sub delete_servers
     return [$successes, $failures];
 }
 
-sub bad 
-{
+sub bad {
     my $c = shift;
     my $base_url = $c->stash->{base_url};
 
@@ -156,8 +150,7 @@ sub bad
     );
 }
 
-sub images
-{
+sub images {
     my $c = shift;
     my $base_url = $c->stash->{base_url};
 
@@ -169,8 +162,7 @@ sub images
     );
 }
 
-sub servers 
-{
+sub servers {
     my $c = shift;
     my $base_url = $c->stash->{base_url};
 
