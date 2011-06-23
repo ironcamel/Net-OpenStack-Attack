@@ -13,9 +13,9 @@ sub setup {
     $c->register_commands({
         create_servers => 'create x number of servers',
         delete_servers => 'delete all servers',
-        servers => 'run x number of server list requests',
-        bad => 'run x number of bad/invalid requests',
-        images => 'run x number of image list requests',
+        servers        => 'run x number of server list requests',
+        bad            => 'run x number of bad/invalid requests',
+        images         => 'run x number of image list requests',
     });
 
     my ($action, $num_runs) = @ARGV;
@@ -60,8 +60,12 @@ sub pre_process {
 
 sub post_process {
     my $c = shift;
-    my $data = $c->output;
-    say "Successes: $data->[0] Failures: $data->[1]";
+    my $output = $c->output;
+    if (ref $output eq 'ARRAY') {
+        say "Successes: $output->[0] Failures: $output->[1]";
+    } else {
+        say $output;
+    }
 }
 
 App::Rad->run();
