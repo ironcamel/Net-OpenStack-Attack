@@ -45,16 +45,6 @@ sub pre_process {
     $c->stash->{num_runs} = $ARGV[0] || 1;
 }
 
-sub post_process {
-    my $c = shift;
-    my $output = $c->output;
-    if (ref $output eq 'ARRAY') {
-        say "Successes: $output->[0] Failures: $output->[1]";
-    } else {
-        say $output;
-    }
-}
-
 App::Rad->run();
 
 #---------- Commands ----------------------------------------------------------
@@ -138,5 +128,5 @@ sub sendreqs {
             push @errmsgs, $res->content;
         }
     }
-    return [$successes, $failures];
+    return "Successes: $successes Failures: $failures";
 }
