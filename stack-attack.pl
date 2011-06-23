@@ -18,11 +18,6 @@ sub setup {
         images         => 'run x number of image list requests',
     });
 
-    my ($action, $num_runs) = @ARGV;
-    $num_runs ||= 1;
-    $c->stash->{num_runs} = $num_runs;
-
-
     my $base_url = $ENV{NOVA_URL};
     die "NOVA_URL env var is missing. Did you forget to source novarc?\n"
         unless $base_url;
@@ -34,8 +29,8 @@ sub setup {
     my $ua = LWP::UserAgent->new();
     my $res = $ua->get(
         $base_url,
-        'X-Auth-Key'  => $ENV{NOVA_API_KEY},
-        'X-Auth-User' => $ENV{NOVA_USERNAME},
+        'x-auth-key'  => $ENV{NOVA_API_KEY},
+        'x-auth-user' => $ENV{NOVA_USERNAME},
     );  
 
     # Store auth_headers
@@ -47,7 +42,7 @@ sub setup {
     # Create body json
     $c->stash->{create_body_json} = to_json({
         server => {
-            name     => 'test-server',
+            name      => 'test-server',
             imageRef  => '3',
             flavorRef => '1',
         }
@@ -56,6 +51,12 @@ sub setup {
 
 sub pre_process {
     my $c = shift;
+    my ($num_runs) = @ARGV;
+
+    die "The delete_servers command does not accept an arguments\n"
+        if $c->cmd eq 'delete_servers' and $num_runs;
+
+    $c->stash->{num_runs} = $num_runs || 1;
 }
 
 sub post_process {
@@ -69,29 +70,6 @@ sub post_process {
 }
 
 App::Rad->run();
-
-#---------- Helpers -----------------------------------------------------------
-
-sub make_requests {
-    my ($num_reqs, $method, $url, $headers, $body) = @_;
-    my ($successes, $failures, @errmsgs) = (0, 0);
-    my $async = HTTP::Async->new;
-
-    for my $i (1 .. $num_reqs) {
-        my $req = HTTP::Request->new($method => $url, $headers, $body);
-        $async->add($req);
-    }
-    while (my $res = $async->wait_for_next_response) {
-        if ($res->status_line =~ /^2/){
-            $successes++;
-        } else {
-            $failures++;
-            push @errmsgs, $res->content;
-        }
-    }
-    return [$successes, $failures];
-
-}
 
 #---------- Commands ----------------------------------------------------------
 
@@ -180,4 +158,26 @@ sub servers {
         "$base_url/servers", 
         $c->stash->{auth_headers},
     );
+}
+
+#---------- Helpers -----------------------------------------------------------
+
+sub make_requests {
+    my ($num_reqs, $method, $url, $headers, $body) = @_;
+    my ($successes, $failures, @errmsgs) = (0, 0);
+    my $async = HTTP::Async->new;
+
+    for my $i (1 .. $num_reqs) {
+        my $req = HTTP::Request->new($method => $url, $headers, $body);
+        $async->add($req);
+    }
+    while (my $res = $async->wait_for_next_response) {
+        if ($res->status_line =~ /^2/){
+            $successes++;
+        } else {
+            $failures++;
+            push @errmsgs, $res->content;
+        }
+    }
+    return [$successes, $failures];
 }

@@ -1,10 +1,16 @@
 #Requirements
     
-    sudo cpan HTTP::Async HTTP::Request App::Rad LWP JSON
+    cpan App::Rad HTTP::Async JSON LWP
+
+or
+
+    curl -L cpanmin.us | perl - App::Rad HTTP::Async JSON LWP
 
 #Usage
 
-To use stack-attack, simple run `./stack-attack.pl [command] [num]`
+Simply run `./stack-attack.pl` and the available commands will be listed.
+
+The general usage is of the form `./stack-attack.pl [command] [num]`
 
 This will run the specified `[command]` `[num]` times.
 
