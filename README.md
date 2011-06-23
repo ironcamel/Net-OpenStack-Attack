@@ -18,6 +18,6 @@ Current commands available are:
 
 * __create_servers__ - create servers
 * __delete_servers__ - delete all servers
-* __servers__ - server list requests
-* __images__ - image list requests
+* __get_servers__ - server list requests
+* __get_images__ - image list requests
 * __bad__ - invalid requests
