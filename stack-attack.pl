@@ -9,9 +9,9 @@ use LWP;
 use JSON qw(to_json from_json);
 
 sub setup {
-    my $c = shift;
+    my $ctx = shift;
 
-    $c->register_commands({
+    $ctx->register_commands({
         create_servers => 'create x number of servers',
         delete_servers => 'delete all servers',
         get_servers    => 'run x number of server list requests',
@@ -25,7 +25,7 @@ sub setup {
         unless $base_url;
     $base_url =~ s(/$)();       # Remove trailing slash
     $base_url =~ s/v1\.0/v1.1/; # Switch to version 1.1
-    $c->stash->{base_url} = $base_url;
+    $ctx->stash->{base_url} = $base_url;
 
     # Save the auth token
     my $ua = LWP::UserAgent->new();
@@ -34,15 +34,15 @@ sub setup {
         'x-auth-key'  => $ENV{NOVA_API_KEY},
         'x-auth-user' => $ENV{NOVA_USERNAME},
     );  
-    $c->stash->{auth_headers} = [
+    $ctx->stash->{auth_headers} = [
         'x-auth-token' => $res->header('x-auth-token'),
         'content-type' => 'application/json'
     ];
 }
 
 sub pre_process {
-    my $c = shift;
-    $c->stash->{num_runs} = $ARGV[0] || 1;
+    my $ctx = shift;
+    $ctx->stash->{num_runs} = $ARGV[0] || 1;
 }
 
 App::Rad->run();
@@ -50,8 +50,8 @@ App::Rad->run();
 #---------- Commands ----------------------------------------------------------
 
 sub create_servers {
-    my $c = shift;
-    my $num_runs = $c->stash->{num_runs};
+    my $ctx = shift;
+    my $num_runs = $ctx->stash->{num_runs};
     my $body = to_json {
         server => {
             name      => 'test-server',
@@ -59,49 +59,49 @@ sub create_servers {
             flavorRef => 1,
         }
     };
-    my @reqs = map makereq($c, POST => '/servers', $body), 1 .. $num_runs;
+    my @reqs = map makereq($ctx, POST => '/servers', $body), 1 .. $num_runs;
     say "Creating $num_runs servers...";
     return sendreqs(@reqs);
 }
 
 sub delete_servers {
-    my $c = shift;
+    my $ctx = shift;
 
     die "The delete_servers command does not accept any arguments\n" if @ARGV;
 
     my $ua = LWP::UserAgent->new();
-    my $base_url = $c->stash->{base_url};
-    my $res = $ua->get("$base_url/servers", @{ $c->stash->{auth_headers} });
+    my $base_url = $ctx->stash->{base_url};
+    my $res = $ua->get("$base_url/servers", @{ $ctx->stash->{auth_headers} });
 
     die "Error getting server list: " . $res->content unless $res->is_success;
 
     my $data = from_json($res->content);
     my @servers = @{ $data->{servers} };
-    my @reqs = map makereq($c, DELETE => "/servers/$_->{id}"), @servers;
+    my @reqs = map makereq($ctx, DELETE => "/servers/$_->{id}"), @servers;
     say "Deleting " . @servers . " servers...";
     return sendreqs(@reqs);
 }
 
 sub bad {
-    my $c = shift;
-    my $num_runs = $c->stash->{num_runs};
-    my @reqs = map makereq($c, GET => '/bad'), 1 .. $num_runs;
+    my $ctx = shift;
+    my $num_runs = $ctx->stash->{num_runs};
+    my @reqs = map makereq($ctx, GET => '/bad'), 1 .. $num_runs;
     say "Sending $num_runs /bad requests...";
     return sendreqs(@reqs);
 }
 
 sub get_images {
-    my $c = shift;
-    my $num_runs = $c->stash->{num_runs};
-    my @reqs = map makereq($c, GET => '/images'), 1 .. $num_runs;
+    my $ctx = shift;
+    my $num_runs = $ctx->stash->{num_runs};
+    my @reqs = map makereq($ctx, GET => '/images'), 1 .. $num_runs;
     say "Sending $num_runs /images requests...";
     return sendreqs(@reqs);
 }
 
 sub get_servers {
-    my $c = shift;
-    my $num_runs = $c->stash->{num_runs};
-    my @reqs = map makereq($c, GET => '/servers'), 1 .. $num_runs;
+    my $ctx = shift;
+    my $num_runs = $ctx->stash->{num_runs};
+    my @reqs = map makereq($ctx, GET => '/servers'), 1 .. $num_runs;
     say "Sending $num_runs /servers requests...";
     return sendreqs(@reqs);
 }
@@ -109,9 +109,9 @@ sub get_servers {
 #---------- Helpers -----------------------------------------------------------
 
 sub makereq {
-    my ($c, $method, $resource, $body) = @_;
-    my $url = $c->stash->{base_url} . $resource;
-    my $headers = $c->stash->{auth_headers};
+    my ($ctx, $method, $resource, $body) = @_;
+    my $url = $ctx->stash->{base_url} . $resource;
+    my $headers = $ctx->stash->{auth_headers};
     return HTTP::Request->new($method => $url, $headers, $body);
 }
 
