@@ -1,10 +1,10 @@
 #Requirements
     
-    cpan App::Rad HTTP::Async JSON LWP
+    cpan App::Rad HTTP::Async JSON LWP perl5i
 
 or
 
-    curl -L cpanmin.us | perl - App::Rad HTTP::Async JSON LWP
+    curl -L cpanmin.us | perl - App::Rad HTTP::Async JSON LWP perl5i
 
 #Usage
 

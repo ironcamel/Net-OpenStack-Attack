@@ -1,15 +1,12 @@
 #!/usr/bin/env perl
-use 5.10.0;
-use strict;
-use warnings;
+use perl5i::2;
 use App::Rad;
 use HTTP::Async;
 use HTTP::Request;
 use LWP;
 use JSON qw(to_json from_json);
 
-sub setup {
-    my $ctx = shift;
+func setup($ctx) {
 
     $ctx->register_commands({
         create_servers => 'create x number of servers',
@@ -40,17 +37,13 @@ sub setup {
     ];
 }
 
-sub pre_process {
-    my $ctx = shift;
+func pre_process($ctx) {
     $ctx->stash->{num_runs} = $ARGV[0] || 1;
 }
 
-App::Rad->run();
-
 #---------- Commands ----------------------------------------------------------
 
-sub create_servers {
-    my $ctx = shift;
+func create_servers($ctx) {
     my $num_runs = $ctx->stash->{num_runs};
     my $body = to_json {
         server => {
@@ -64,8 +57,7 @@ sub create_servers {
     return sendreqs(@reqs);
 }
 
-sub delete_servers {
-    my $ctx = shift;
+func delete_servers($ctx) {
 
     die "The delete_servers command does not accept any arguments\n" if @ARGV;
 
@@ -82,24 +74,21 @@ sub delete_servers {
     return sendreqs(@reqs);
 }
 
-sub bad {
-    my $ctx = shift;
+func bad($ctx) {
     my $num_runs = $ctx->stash->{num_runs};
     my @reqs = map makereq($ctx, GET => '/bad'), 1 .. $num_runs;
     say "Sending $num_runs /bad requests...";
     return sendreqs(@reqs);
 }
 
-sub get_images {
-    my $ctx = shift;
+func get_images($ctx) {
     my $num_runs = $ctx->stash->{num_runs};
     my @reqs = map makereq($ctx, GET => '/images'), 1 .. $num_runs;
     say "Sending $num_runs /images requests...";
     return sendreqs(@reqs);
 }
 
-sub get_servers {
-    my $ctx = shift;
+func get_servers($ctx) {
     my $num_runs = $ctx->stash->{num_runs};
     my @reqs = map makereq($ctx, GET => '/servers'), 1 .. $num_runs;
     say "Sending $num_runs /servers requests...";
@@ -108,15 +97,13 @@ sub get_servers {
 
 #---------- Helpers -----------------------------------------------------------
 
-sub makereq {
-    my ($ctx, $method, $resource, $body) = @_;
+func makereq($ctx, $method, $resource, $body) {
     my $url = $ctx->stash->{base_url} . $resource;
     my $headers = $ctx->stash->{auth_headers};
     return HTTP::Request->new($method => $url, $headers, $body);
 }
 
-sub sendreqs {
-    my @reqs = @_;
+func sendreqs(@reqs) {
     my $async = HTTP::Async->new;
     $async->add(@reqs);
     my ($successes, $failures, @errmsgs) = (0, 0);
@@ -130,3 +117,5 @@ sub sendreqs {
     }
     return "Successes: $successes Failures: $failures";
 }
+
+App::Rad->run();
