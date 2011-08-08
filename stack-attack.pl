@@ -116,9 +116,7 @@ func sendreqs($ctx, @reqs) {
     }
 
     if($ctx->options->{verbose}){
-        foreach (@errmsgs){
-            warn $_ . "\n";
-        }
+        foreach (@errmsgs){ warn "$_\n"; }
     }
     return "Successes: $successes Failures: $failures";
 }
