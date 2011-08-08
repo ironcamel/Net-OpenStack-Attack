@@ -10,9 +10,9 @@ or
 
 Simply run `./stack-attack.pl` and the available commands will be listed.
 
-The general usage is of the form `./stack-attack.pl [command] [num]`
+The general usage is of the form `./stack-attack.pl [command] [num] [--args]`  
 
-This will run the specified `[command]` `[num]` times.
+This will run the specified `[command]` `[num]` times with `[--args]` passed.
 
 Current commands available are:
 
@@ -21,3 +21,7 @@ Current commands available are:
 * __get_servers__ - server list requests
 * __get_images__ - image list requests
 * __bad__ - invalid requests
+
+Current arguments available are:
+
+* --verbose/-v - will put any failure messages into stderr
