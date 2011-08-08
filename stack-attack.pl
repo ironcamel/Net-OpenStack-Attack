@@ -27,7 +27,7 @@ func setup($ctx) {
     # Save the auth token
     my $ua = LWP::UserAgent->new();
     my $res = $ua->get(
-        $base_url, 
+        $base_url,
         'x-auth-key'  => $ENV{NOVA_API_KEY},
         'x-auth-user' => $ENV{NOVA_USERNAME},
     );  
