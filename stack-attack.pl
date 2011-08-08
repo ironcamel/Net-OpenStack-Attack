@@ -27,7 +27,7 @@ func setup($ctx) {
     # Save the auth token
     my $ua = LWP::UserAgent->new();
     my $res = $ua->get(
-        $base_url,
+        $base_url, 
         'x-auth-key'  => $ENV{NOVA_API_KEY},
         'x-auth-user' => $ENV{NOVA_USERNAME},
     );  
@@ -38,8 +38,8 @@ func setup($ctx) {
 }
 
 func pre_process($ctx) {
-    $ctx->stash->{num_runs} = $ARGV[0] || 1;
-    $ctx->stash->{verbose} = $ctx->options->{verbose} || 0;
+    $ctx->getopt('verbose|v');
+    $ctx->stash->{num_runs} = $ctx->argv->[0] || 1;
 }
 
 #---------- Commands ----------------------------------------------------------
@@ -59,8 +59,6 @@ func create_servers($ctx) {
 }
 
 func delete_servers($ctx) {
-
-    die "The delete_servers command does not accept any arguments\n" if @ARGV;
 
     my $ua = LWP::UserAgent->new();
     my $base_url = $ctx->stash->{base_url};
@@ -117,9 +115,9 @@ func sendreqs($ctx, @reqs) {
         }
     }
 
-    if($ctx->stash->{verbose}){
+    if($ctx->options->{verbose}){
         foreach (@errmsgs){
-            print $_;
+            print $_ . "\n\n";
         }
     }
     return "Successes: $successes Failures: $failures";
