@@ -38,7 +38,8 @@ func setup($ctx) {
 }
 
 func pre_process($ctx) {
-    $ctx->stash->{num_runs} = $ARGV[0] || 1;
+    $ctx->getopt('verbose|v');
+    $ctx->stash->{num_runs} = $ctx->argv->[0] || 1;
 }
 
 #---------- Commands ----------------------------------------------------------
@@ -54,12 +55,10 @@ func create_servers($ctx) {
     };
     my @reqs = map makereq($ctx, POST => '/servers', $body), 1 .. $num_runs;
     say "Creating $num_runs servers...";
-    return sendreqs(@reqs);
+    return sendreqs($ctx, @reqs);
 }
 
 func delete_servers($ctx) {
-
-    die "The delete_servers command does not accept any arguments\n" if @ARGV;
 
     my $ua = LWP::UserAgent->new();
     my $base_url = $ctx->stash->{base_url};
@@ -71,28 +70,28 @@ func delete_servers($ctx) {
     my @servers = @{ $data->{servers} };
     my @reqs = map makereq($ctx, DELETE => "/servers/$_->{id}"), @servers;
     say "Deleting " . @servers . " servers...";
-    return sendreqs(@reqs);
+    return sendreqs($ctx, @reqs);
 }
 
 func bad($ctx) {
     my $num_runs = $ctx->stash->{num_runs};
     my @reqs = map makereq($ctx, GET => '/bad'), 1 .. $num_runs;
     say "Sending $num_runs /bad requests...";
-    return sendreqs(@reqs);
+    return sendreqs($ctx, @reqs);
 }
 
 func get_images($ctx) {
     my $num_runs = $ctx->stash->{num_runs};
     my @reqs = map makereq($ctx, GET => '/images'), 1 .. $num_runs;
     say "Sending $num_runs /images requests...";
-    return sendreqs(@reqs);
+    return sendreqs($ctx, @reqs);
 }
 
 func get_servers($ctx) {
     my $num_runs = $ctx->stash->{num_runs};
     my @reqs = map makereq($ctx, GET => '/servers'), 1 .. $num_runs;
     say "Sending $num_runs /servers requests...";
-    return sendreqs(@reqs);
+    return sendreqs($ctx, @reqs);
 }
 
 #---------- Helpers -----------------------------------------------------------
@@ -103,7 +102,7 @@ func makereq($ctx, $method, $resource, $body) {
     return HTTP::Request->new($method => $url, $headers, $body);
 }
 
-func sendreqs(@reqs) {
+func sendreqs($ctx, @reqs) {
     my $async = HTTP::Async->new;
     $async->add(@reqs);
     my ($successes, $failures, @errmsgs) = (0, 0);
@@ -114,6 +113,10 @@ func sendreqs(@reqs) {
             $failures++;
             push @errmsgs, $res->content;
         }
+    }
+
+    if($ctx->options->{verbose}){
+        foreach my $msg (@errmsgs){ warn "$msg\n"; }
     }
     return "Successes: $successes Failures: $failures";
 }
