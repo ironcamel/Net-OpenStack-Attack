@@ -24,4 +24,4 @@ Current commands available are:
 
 Current arguments available are:
 
-* --verbose/-v - will put any failure messages into stderr
+* __--verbose/-v__ - will put any failure messages into stderr
