@@ -1,6 +1,10 @@
+#About
+
+This is a tool for stress testing openstack.
+
 #Requirements
     
-    cpan App::Rad HTTP::Async JSON LWP perl5i
+    cpanm App::Rad HTTP::Async JSON LWP perl5i
 
 or
 
