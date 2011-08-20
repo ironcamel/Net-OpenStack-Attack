@@ -20,8 +20,6 @@ func setup($ctx) {
     my $base_url = $ENV{NOVA_URL};
     die "NOVA_URL env var is missing. Did you forget to source novarc?\n"
         unless $base_url;
-    $base_url =~ s(/$)();       # Remove trailing slash
-    $base_url =~ s/v1\.0/v1.1/; # Switch to version 1.1
     $ctx->stash->{base_url} = $base_url;
 
     # Save the auth token
@@ -115,7 +113,7 @@ func sendreqs($ctx, @reqs) {
         }
     }
 
-    if($ctx->options->{verbose}){
+    if ($ctx->options->{verbose}) {
         foreach my $msg (@errmsgs) { warn "$msg\n" }
     }
     return "Successes: $successes Failures: $failures";
