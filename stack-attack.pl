@@ -20,7 +20,6 @@ func setup($ctx) {
     my $base_url = $ENV{NOVA_URL};
     die "NOVA_URL env var is missing. Did you forget to source novarc?\n"
         unless $base_url;
-    $ctx->stash->{base_url} = $base_url;
 
     # Save the auth token
     my $ua = LWP::UserAgent->new();
@@ -29,6 +28,7 @@ func setup($ctx) {
         'x-auth-key'  => $ENV{NOVA_API_KEY},
         'x-auth-user' => $ENV{NOVA_USERNAME},
     );  
+    $ctx->stash->{base_url} = $res->header('x-server-management-url');
     $ctx->stash->{auth_headers} = [
         'x-auth-token' => $res->header('x-auth-token'),
         'content-type' => 'application/json'
