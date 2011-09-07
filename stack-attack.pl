@@ -113,7 +113,7 @@ func sendreqs($ctx, @reqs) {
             push @errmsgs, $res->content;
         }
     }
-    my $time_diff = sprintf( "%.3f", (time - $start_time));
+    my $time_diff = sprintf '%.3f', time - $start_time;
 
     if ($ctx->options->{verbose}) {
         foreach my $msg (@errmsgs) { warn "$msg\n" }
