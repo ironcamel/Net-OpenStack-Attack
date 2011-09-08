@@ -3,9 +3,9 @@ use perl5i::2;
 use App::Rad;
 use HTTP::Async;
 use HTTP::Request;
-use LWP;
-use Time::HiRes qw (time);
 use JSON qw(to_json from_json);
+use LWP;
+use Time::SoFar qw(runtime);
 
 func setup($ctx) {
 
@@ -103,8 +103,8 @@ func makereq($ctx, $method, $resource, $body) {
 
 func sendreqs($ctx, @reqs) {
     my $async = HTTP::Async->new;
-    my ($start_time, $successes, $failures, @errmsgs) = (time, 0, 0);
     $async->add(@reqs);
+    my ($successes, $failures, @errmsgs) = (0, 0);
     while (my $res = $async->wait_for_next_response) {
         if ($res->is_success) {
             $successes++;
@@ -113,12 +113,11 @@ func sendreqs($ctx, @reqs) {
             push @errmsgs, $res->content;
         }
     }
-    my $time_diff = sprintf '%.3f', time - $start_time;
 
     if ($ctx->options->{verbose}) {
         foreach my $msg (@errmsgs) { warn "$msg\n" }
     }
-    return "Successes: $successes Failures: $failures ($time_diff seconds)";
+    return "Successes: $successes Failures: $failures Time: " . runtime();
 }
 
 App::Rad->run();

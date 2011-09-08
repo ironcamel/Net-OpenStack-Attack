@@ -4,11 +4,11 @@ This is a tool for stress testing openstack.
 
 #Requirements
     
-    cpanm App::Rad HTTP::Async JSON LWP perl5i
+    cpanm App::Rad HTTP::Async JSON LWP perl5i Time::SoFar
 
 or
 
-    curl -L cpanmin.us | perl - App::Rad HTTP::Async JSON LWP perl5i
+    curl -L cpanmin.us | perl - App::Rad HTTP::Async JSON LWP perl5i Time::SoFar
 
 #Usage
 
