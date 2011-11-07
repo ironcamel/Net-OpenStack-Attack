@@ -7,8 +7,57 @@ use JSON qw(to_json from_json);
 use LWP;
 use Time::SoFar qw(runtime);
 
-func setup($ctx) {
+my %auth_methods = (
+    'v1.1' => func($ua, $base_url) {
+        my $res = $ua->get($base_url,
+            'X-Auth-Key'  => $ENV{NOVA_API_KEY},
+            'X-Auth-User' => $ENV{NOVA_USERNAME},
+            'X-Auth-Project-Id' => $ENV{NOVA_PROJECT_ID},
+        );
+        #say $res->headers->as_string;
+        die $res->status_line . "\n" . $res->content unless $res->is_success;
 
+        return (
+            $res->header('x-server-management-url'),
+            $res->header('x-auth-token')
+        );
+    },
+
+    'v2.0' => func($ua, $base_url) {
+        my $auth_data = {
+            auth =>  {
+                passwordCredentials => {
+                    username => $ENV{NOVA_USERNAME},
+                    password => $ENV{NOVA_API_KEY},
+                }
+            }
+        };
+
+        my $res = $ua->post("$base_url/tokens",
+            content_type => 'application/json', Content => to_json($auth_data));
+        
+        die $res->status_line . "\n" . $res->content unless $res->is_success;
+        my $data = from_json($res->content);
+        my $token = $data->{access}{token}{id};
+
+        my ($catalog) =
+            grep { $_->{type} eq 'compute' } @{$data->{access}{serviceCatalog}};
+        die "No compute service catalog found" unless $catalog;
+
+        $base_url = $catalog->{endpoints}[0]{publicURL};
+        if ($ENV{NOVA_REGION_NAME}) {
+            for my $endpoint (@{ $catalog->{endpoints} }) {
+                if ($endpoint->{region} eq $ENV{NOVA_REGION_NAME}) {
+                    $base_url = $endpoint->{publicURL};
+                    last;
+                }
+            }
+        }
+        return ($base_url, $token);
+    }
+);
+
+func setup($ctx) {
     $ctx->register_commands({
         create_servers => 'create x number of servers',
         delete_servers => 'delete all servers',
@@ -17,27 +66,29 @@ func setup($ctx) {
         bad            => 'run x number of bad/invalid requests',
     });
 
-    # Construct the base url
+    # Determine the version
     my $base_url = $ENV{NOVA_URL};
-    die "NOVA_URL env var is missing. Did you forget to source novarc?\n"
+    die "NOVA_URL env var is missing. Did you forget to source a novarc?\n"
         unless $base_url;
+    $base_url =~ s{/$}{}; # Remove trailing slash if it exists
+    my ($version) = $base_url =~ /(v\d\.\d)$/;
+    die "Could not determine version from url [$base_url]"
+        unless $version;
 
-    # Save the auth token
+    # Do auth and stash the auth token and base url
     my $ua = LWP::UserAgent->new();
-    my $res = $ua->get(
-        $base_url,
-        'x-auth-key'  => $ENV{NOVA_API_KEY},
-        'x-auth-user' => $ENV{NOVA_USERNAME},
-    );  
-    $ctx->stash->{base_url} = $res->header('x-server-management-url');
+    my $auth_method = $auth_methods{$version}
+        or die "version [$version] is not supported";
+    my ($real_base_url, $token) = $auth_method->($ua, $base_url);
+    $ctx->stash->{base_url} = $real_base_url;
     $ctx->stash->{auth_headers} = [
-        'x-auth-token' => $res->header('x-auth-token'),
-        'content-type' => 'application/json'
+        'x-auth-token' => $token,
+        'content-type' => 'application/json',
     ];
 }
 
 func pre_process($ctx) {
-    $ctx->getopt('verbose|v');
+    $ctx->getopt('verbose|v', 'image|i=s');
     $ctx->stash->{num_runs} = $ctx->argv->[0] || 1;
 }
 
@@ -45,10 +96,11 @@ func pre_process($ctx) {
 
 func create_servers($ctx) {
     my $num_runs = $ctx->stash->{num_runs};
+    my $image = $ctx->options->{image} or die "--image option required";
     my $body = to_json {
         server => {
             name      => 'test-server',
-            imageRef  => 3,
+            imageRef  => $image,
             flavorRef => 1,
         }
     };
@@ -58,7 +110,6 @@ func create_servers($ctx) {
 }
 
 func delete_servers($ctx) {
-
     my $ua = LWP::UserAgent->new();
     my $base_url = $ctx->stash->{base_url};
     my $res = $ua->get("$base_url/servers", @{ $ctx->stash->{auth_headers} });
