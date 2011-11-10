@@ -62,7 +62,8 @@ my %auth_methods = (
 
 func setup($ctx) {
     $ctx->register_commands({
-        create_servers => 'create x number of servers',
+        create_servers =>
+            'create x number of servers (--image|-i option is required)',
         delete_servers => 'delete all servers',
         get_servers    => 'run x number of server list requests',
         get_images     => 'run x number of image list requests',

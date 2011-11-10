@@ -12,17 +12,18 @@ If you do not have cpanm, you can install it via:
 
     curl -L cpanmin.us | perl - --sudo cpanm
 
-#Usage
+# Usage
 
-Run `./stack-attack.pl` and the available commands will be listed.
+After installing, stackattack will be in your system path.
+Run `stackattack` and the available commands will be listed.
 
-The general usage is of the form `./stack-attack.pl [command] [num] [--args]`  
+The general usage is of the form `stackattack [command] [--args] [num]`  
 
 This will run the specified `[command]` `[num]` times with `[--args]` passed.
 
 Current commands available are:
 
-* __create_servers__ - create servers
+* __create_servers__ - create servers (--image|-i option is required)
 * __delete_servers__ - delete all servers
 * __get_servers__ - server list requests
 * __get_images__ - image list requests
