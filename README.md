@@ -1,18 +1,20 @@
-#About
+# About
 
 This is a tool for stress testing openstack.
 
-#Requirements
+# Installation
     
-    cpanm App::Rad HTTP::Async JSON LWP perl5i Time::SoFar
+To install, simply cd to the project directory and run:
 
-or
+    sudo cpanm .
 
-    curl -L cpanmin.us | perl - App::Rad HTTP::Async JSON LWP perl5i Time::SoFar
+If you do not have cpanm, you can install it via:
+
+    curl -L cpanmin.us | perl - --sudo cpanm
 
 #Usage
 
-Simply run `./stack-attack.pl` and the available commands will be listed.
+Run `./stack-attack.pl` and the available commands will be listed.
 
 The general usage is of the form `./stack-attack.pl [command] [num] [--args]`  
 
@@ -29,3 +31,7 @@ Current commands available are:
 Current arguments available are:
 
 * __--verbose/-v__ - will put any failure messages into stderr
+
+Note that arguments need to come after the command:
+
+    stackattack create_servers -v
