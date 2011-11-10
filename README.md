@@ -35,4 +35,4 @@ Current arguments available are:
 
 Note that arguments need to come after the command:
 
-    stackattack create_servers -v
+    stackattack create_servers -v -image=9b2a5e8d-c879-4c02-bc79-433efccc693e 50
