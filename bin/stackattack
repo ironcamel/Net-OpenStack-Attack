@@ -8,57 +8,8 @@ use HTTP::Request;
 use JSON qw(to_json from_json);
 use LWP;
 use Method::Signatures::Simple;
+use Net::OpenStack::Attack;
 use Time::SoFar qw(runtime);
-
-my %auth_methods = (
-    'v1.1' => func($ua, $base_url) {
-        my $res = $ua->get($base_url,
-            'X-Auth-Key'  => $ENV{NOVA_API_KEY},
-            'X-Auth-User' => $ENV{NOVA_USERNAME},
-            'X-Auth-Project-Id' => $ENV{NOVA_PROJECT_ID},
-        );
-        #say $res->headers->as_string;
-        die $res->status_line . "\n" . $res->content unless $res->is_success;
-
-        return (
-            $res->header('x-server-management-url'),
-            $res->header('x-auth-token')
-        );
-    },
-
-    'v2.0' => func($ua, $base_url) {
-        my $auth_data = {
-            auth =>  {
-                passwordCredentials => {
-                    username => $ENV{NOVA_USERNAME},
-                    password => $ENV{NOVA_API_KEY},
-                }
-            }
-        };
-
-        my $res = $ua->post("$base_url/tokens",
-            content_type => 'application/json', Content => to_json($auth_data));
-        
-        die $res->status_line . "\n" . $res->content unless $res->is_success;
-        my $data = from_json($res->content);
-        my $token = $data->{access}{token}{id};
-
-        my ($catalog) =
-            grep { $_->{type} eq 'compute' } @{$data->{access}{serviceCatalog}};
-        die "No compute service catalog found" unless $catalog;
-
-        $base_url = $catalog->{endpoints}[0]{publicURL};
-        if ($ENV{NOVA_REGION_NAME}) {
-            for my $endpoint (@{ $catalog->{endpoints} }) {
-                if ($endpoint->{region} eq $ENV{NOVA_REGION_NAME}) {
-                    $base_url = $endpoint->{publicURL};
-                    last;
-                }
-            }
-        }
-        return ($base_url, $token);
-    }
-);
 
 func setup($ctx) {
     $ctx->register_commands({
@@ -79,10 +30,7 @@ func setup($ctx) {
         unless $version;
 
     # Do auth and stash the auth token and base url
-    my $ua = LWP::UserAgent->new();
-    my $auth_method = $auth_methods{$version}
-        or die "version [$version] is not supported";
-    my ($real_base_url, $token) = $auth_method->($ua, $base_url);
+    my ($real_base_url, $token) = Net::OpenStack::Attack::auth($base_url);
     $ctx->stash->{base_url} = $real_base_url;
     $ctx->stash->{auth_headers} = [
         'x-auth-token' => $token,
@@ -184,3 +132,29 @@ func get_any_image($ctx) {
 }
 
 App::Rad->run();
+
+# PODNAME: stackattack
+
+=head1 SYNOPSIS
+
+    Usage: stackattack command [args]
+
+    Available Commands:
+        bad                 run x number of bad/invalid requests
+        create_servers      create x number of servers (--image|-i optional)
+        delete_servers      delete all servers
+        get_images          run x number of image list requests
+        get_servers         run x number of server list requests
+        help                show syntax and available commands
+
+    --verbose|-v after a command will print failures to stderr
+
+    Examples:
+
+    # Create 10 servers in parallel
+    $ stackattack create_servers 10
+
+    # Same thing, but more verbose
+    $ stackattack create_servers -v 10
+
+=cut
