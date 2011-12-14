@@ -62,8 +62,7 @@ my %auth_methods = (
 
 func setup($ctx) {
     $ctx->register_commands({
-        create_servers =>
-            'create x number of servers (--image|-i option is required)',
+        create_servers => 'create x number of servers (--image|-i optional)',
         delete_servers => 'delete all servers',
         get_servers    => 'run x number of server list requests',
         get_images     => 'run x number of image list requests',
@@ -100,7 +99,7 @@ func pre_process($ctx) {
 
 func create_servers($ctx) {
     my $num_runs = $ctx->stash->{num_runs};
-    my $image = $ctx->options->{image} or die "--image option required";
+    my $image = $ctx->options->{image} || get_any_image($ctx);
     my $body = to_json {
         server => {
             name      => 'test-server',
@@ -173,6 +172,15 @@ func sendreqs($ctx, @reqs) {
         foreach my $msg (@errmsgs) { warn "$msg\n" }
     }
     return "Successes: $successes Failures: $failures Time: " . runtime();
+}
+
+func get_any_image($ctx) {
+    my $ua = LWP::UserAgent->new();
+    my $base_url = $ctx->stash->{base_url};
+    my $res = $ua->get("$base_url/images", @{ $ctx->stash->{auth_headers} });
+    die "Error grabbing arbitrary image id: " . $res->content
+        unless $res->is_success;
+    return from_json($res->content)->{images}[0]{id};
 }
 
 App::Rad->run();
