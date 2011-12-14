@@ -2,7 +2,7 @@ package Net::OpenStack::Attack;
 use strict;
 use warnings;
 
-our $VERSION = '0.0001';
+# VERSION
 
 use LWP;
 use Method::Signatures::Simple;
@@ -64,5 +64,13 @@ func auth_keystone($base_url) {
     return ($base_url, $token);
 }
 
+# ABSTRACT: Steroids for your perl one-liners.
+
+=head1 DESCRIPTION
+
+This module contains helper methods used by stackattack.
+You probably want to look at the documentation for L<stackattack> instead.
+
+=cut
 
 1;
