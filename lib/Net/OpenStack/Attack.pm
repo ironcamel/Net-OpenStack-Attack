@@ -4,6 +4,7 @@ use warnings;
 
 # VERSION
 
+use JSON qw(from_json to_json);
 use LWP;
 use Method::Signatures::Simple;
 
