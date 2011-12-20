@@ -13,12 +13,12 @@ use Time::SoFar qw(runtime);
 
 func setup($ctx) {
     $ctx->register_commands({
-        create_servers => 'create x number of servers (--image|-i optional)',
-        delete_servers => 'delete all servers',
-        get_servers    => 'run x number of server list requests',
-        get_images     => 'run x number of image list requests',
-        bad            => 'run x number of bad/invalid requests',
+        bad    => 'send invalid requests',
+        create => 'create servers (--image|-i optional)',
+        delete => 'delete all servers created by stackattack',
+        get    => 'send get servers requests',
     });
+    $ctx->register('get-images' => \&get_images, 'send image list requests');
 
     # Determine the version
     my $base_url = $ENV{NOVA_URL};
@@ -39,18 +39,17 @@ func setup($ctx) {
 }
 
 func pre_process($ctx) {
-    $ctx->getopt('verbose|v', 'image|i=s');
     $ctx->stash->{num_runs} = $ctx->argv->[0] || 1;
 }
 
 #---------- Commands ----------------------------------------------------------
 
-func create_servers($ctx) {
+func create($ctx) {
     my $num_runs = $ctx->stash->{num_runs};
     my $image = $ctx->options->{image} || get_any_image($ctx);
     my $body = to_json {
         server => {
-            name      => 'test-server',
+            name      => 'stackattack',
             imageRef  => $image,
             flavorRef => 1,
         }
@@ -60,7 +59,7 @@ func create_servers($ctx) {
     return sendreqs($ctx, @reqs);
 }
 
-func delete_servers($ctx) {
+func delete($ctx) {
     my $ua = LWP::UserAgent->new();
     my $base_url = $ctx->stash->{base_url};
     my $res = $ua->get("$base_url/servers", @{ $ctx->stash->{auth_headers} });
@@ -68,8 +67,8 @@ func delete_servers($ctx) {
     die "Error getting server list: " . $res->content unless $res->is_success;
 
     my $data = from_json($res->content);
-    my @servers = @{ $data->{servers} };
-    my @reqs = map makereq($ctx, DELETE => "/servers/$_->{id}"), @servers;
+    my @servers = grep { $_->{name} eq 'stackattack' } @{ $data->{servers} };
+    my @reqs = map { makereq($ctx, DELETE => "/servers/$_->{id}") } @servers;
     say "Deleting " . @servers . " servers...";
     return sendreqs($ctx, @reqs);
 }
@@ -81,17 +80,17 @@ func bad($ctx) {
     return sendreqs($ctx, @reqs);
 }
 
+func get($ctx) {
+    my $num_runs = $ctx->stash->{num_runs};
+    my @reqs = map makereq($ctx, GET => '/servers'), 1 .. $num_runs;
+    say "Sending $num_runs /servers requests...";
+    return sendreqs($ctx, @reqs);
+}
+
 func get_images($ctx) {
     my $num_runs = $ctx->stash->{num_runs};
     my @reqs = map makereq($ctx, GET => '/images'), 1 .. $num_runs;
     say "Sending $num_runs /images requests...";
-    return sendreqs($ctx, @reqs);
-}
-
-func get_servers($ctx) {
-    my $num_runs = $ctx->stash->{num_runs};
-    my @reqs = map makereq($ctx, GET => '/servers'), 1 .. $num_runs;
-    say "Sending $num_runs /servers requests...";
     return sendreqs($ctx, @reqs);
 }
 
@@ -112,13 +111,10 @@ func sendreqs($ctx, @reqs) {
             $successes++;
         } else {
             $failures++;
-            push @errmsgs, $res->content;
+            warn sprintf "Error: %s: %s", $res->status_line, $res->content;
         }
     }
 
-    if ($ctx->options->{verbose}) {
-        foreach my $msg (@errmsgs) { warn "$msg\n" }
-    }
     return "Successes: $successes Failures: $failures Time: " . runtime();
 }
 
@@ -137,24 +133,25 @@ App::Rad->run();
 
 =head1 SYNOPSIS
 
-    Usage: stackattack command [args]
+    Usage: stackattack command [arguments]
 
     Available Commands:
-        bad                 run x number of bad/invalid requests
-        create_servers      create x number of servers (--image|-i optional)
-        delete_servers      delete all servers
-        get_images          run x number of image list requests
-        get_servers         run x number of server list requests
-        help                show syntax and available commands
-
-    --verbose|-v after a command will print failures to stderr
+        bad         send invalid requests
+        create      create servers (--image|-i optional)
+        delete      delete all servers created by stackattack
+        get         send get servers requests
+        get-images  send image list requests
+        help        show syntax and available commands
 
     Examples:
 
-    # Create 10 servers in parallel
-    $ stackattack create_servers 10
+    # Create a server
+    $ stackattack create
 
-    # Same thing, but more verbose
-    $ stackattack create_servers -v 10
+    # Create 10 servers in parallel
+    $ stackattack create 10
+
+    # Create 10 servers with an explicit image id
+    $ stackattack create -i b79cf9f9-cea9-44c7-a3ac-74a6668eb78b 10
 
 =cut
