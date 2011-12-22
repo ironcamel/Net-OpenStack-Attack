@@ -1,5 +1,9 @@
 Revision history for Net-OpenStack-Attack
 
+1.0000  2011-12-22
+        Cleaning up command line interface.
+        Now using Net::OpenStack::Compute::Auth for auth.
+
 0.0002  2011-12-15
         Bug fix. Forgot to import json functions.
 

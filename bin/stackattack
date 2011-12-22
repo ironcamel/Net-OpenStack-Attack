@@ -8,7 +8,7 @@ use HTTP::Request;
 use JSON qw(to_json from_json);
 use LWP;
 use Method::Signatures::Simple;
-use Net::OpenStack::Attack;
+use Net::OpenStack::Compute::Auth;
 use Time::SoFar qw(runtime);
 
 func setup($ctx) {
@@ -20,21 +20,21 @@ func setup($ctx) {
     });
     $ctx->register('get-images' => \&get_images, 'send image list requests');
 
-    # Determine the version
-    my $base_url = $ENV{NOVA_URL};
-    die "NOVA_URL env var is missing. Did you forget to source a novarc?\n"
-        unless $base_url;
-    $base_url =~ s{/$}{}; # Remove trailing slash if it exists
-    my ($version) = $base_url =~ /(v\d\.\d)$/;
-    die "Could not determine version from url [$base_url]"
-        unless $version;
+    my $nova_url = $ENV{NOVA_URL} or die
+        "NOVA_URL env var is missing. Did you forget to source novarc?\n";
 
     # Do auth and stash the auth token and base url
-    my ($real_base_url, $token) = Net::OpenStack::Attack::auth($base_url);
-    $ctx->stash->{base_url} = $real_base_url;
+    my $auth = Net::OpenStack::Compute::Auth->new(
+        auth_url   => $nova_url,
+        user       => $ENV{NOVA_USERNAME},
+        password   => $ENV{NOVA_API_KEY},
+        project_id => $ENV{NOVA_PROJECT_ID},
+        region     => $ENV{NOVA_REGION_NAME},
+    );
+    $ctx->stash->{base_url} = $auth->base_url;
     $ctx->stash->{auth_headers} = [
-        'x-auth-token' => $token,
-        'content-type' => 'application/json',
+        x_auth_token => $auth->token,
+        content_type => 'application/json',
     ];
 }
 
@@ -153,5 +153,10 @@ App::Rad->run();
 
     # Create 10 servers with an explicit image id
     $ stackattack create -i b79cf9f9-cea9-44c7-a3ac-74a6668eb78b 10
+
+=head1 DESCRIPTION
+
+This is a command line utility for stress testing an OpenStack deployment.
+All http requests are run in parallel using L<HTTP::Async>.
 
 =cut
