@@ -4,7 +4,7 @@ The purpose of this tool is to help with stress testing OpenStack.
 It makes asynchronous http requests to slam an OpenStack deployment.
 For example, the following makes 50 create server requests in parallel:
 
-    stackattack create_servers  50
+    stackattack create 50
 
 # Installation
 
