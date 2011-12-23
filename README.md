@@ -34,4 +34,4 @@ Make sure to source a novarc file first to have env variables set up.
 
 # Documentation
 
-See https://metacpan.org/module/stackattack
+See [stackattack](https://metacpan.org/module/stackattack)
