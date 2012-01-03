@@ -19,33 +19,37 @@ func setup($ctx) {
         get    => 'send get servers requests',
     });
     $ctx->register('get-images' => \&get_images, 'send image list requests');
-
-    my $nova_url = $ENV{NOVA_URL} or die
-        "NOVA_URL env var is missing. Did you forget to source novarc?\n";
-
-    # Do auth and stash the auth token and base url
-    my $auth = Net::OpenStack::Compute::Auth->new(
-        auth_url   => $nova_url,
-        user       => $ENV{NOVA_USERNAME},
-        password   => $ENV{NOVA_API_KEY},
-        project_id => $ENV{NOVA_PROJECT_ID},
-        region     => $ENV{NOVA_REGION_NAME},
-    );
-    $ctx->stash->{base_url} = $auth->base_url;
-    $ctx->stash->{auth_headers} = [
-        x_auth_token => $auth->token,
-        content_type => 'application/json',
-    ];
 }
 
 func pre_process($ctx) {
+    my $cmd = $ctx->cmd;
+    if ($ctx->is_command($cmd) and $cmd ne 'help') {
+        my $msg = "%s env var is missing. Did you forget to source novarc?\n";
+        die sprintf($msg, 'NOVA_URL') unless $ENV{NOVA_URL};
+        die sprintf($msg, 'NOVA_USERNAME') unless $ENV{NOVA_USERNAME};
+        die sprintf($msg, 'NOVA_PASSWORD or NOVA_API_KEY')
+            unless $ENV{NOVA_PASSWORD} || $ENV{NOVA_API_KEY};
+        my $auth = Net::OpenStack::Compute::Auth->new(
+            auth_url   => $ENV{NOVA_URL},
+            user       => $ENV{NOVA_USERNAME},
+            password   => $ENV{NOVA_PASSWORD} || $ENV{NOVA_API_KEY},
+            project_id => $ENV{NOVA_PROJECT_ID},
+            region     => $ENV{NOVA_REGION_NAME},
+        );
+        $ctx->stash->{base_url} = $auth->base_url;
+        $ctx->stash->{auth_headers} = [
+            x_auth_token => $auth->token,
+            content_type => 'application/json',
+        ];
+    }
     $ctx->stash->{num_runs} = $ctx->argv->[0] || 1;
 }
 
 #---------- Commands ----------------------------------------------------------
 
 func create($ctx) {
-    my $num_runs = $ctx->stash->{num_runs};
+    $ctx->getopt('image|i=s');
+    my $num_runs = $ctx->argv->[0] || 1;
     my $image = $ctx->options->{image} || get_any_image($ctx);
     my $body = to_json {
         server => {

@@ -1,5 +1,8 @@
 Revision history for Net-OpenStack-Attack
 
+1.0001  2012-01-03
+        Fixed --image option parsing bug.
+
 1.0000  2011-12-22
         Cleaning up command line interface.
         Now using Net::OpenStack::Compute::Auth for auth.
