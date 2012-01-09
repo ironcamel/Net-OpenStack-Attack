@@ -3,135 +3,92 @@ use strict;
 use warnings;
 use v5.10;
 use App::Rad;
-use HTTP::Async;
-use HTTP::Request;
-use JSON qw(to_json from_json);
-use LWP;
-use Method::Signatures::Simple;
-use Net::OpenStack::Compute::Auth;
+use Net::OpenStack::Attack;
+use Net::OpenStack::Compute;
 use Time::SoFar qw(runtime);
 
-func setup($ctx) {
-    $ctx->register_commands({
+App::Rad->run();
+
+sub setup {
+    my $c = shift;
+    $c->register_commands({
         bad    => 'send invalid requests',
         create => 'create servers (--image|-i optional)',
         delete => 'delete all servers created by stackattack',
         get    => 'send get servers requests',
     });
-    $ctx->register('get-images' => \&get_images, 'send image list requests');
+    $c->register('get-images' => \&get_images, 'send image list requests');
 }
 
-func pre_process($ctx) {
-    my $cmd = $ctx->cmd;
-    if ($ctx->is_command($cmd) and $cmd ne 'help') {
+sub pre_process {
+    my $c = shift;
+    my $cmd = $c->cmd;
+    if ($c->is_command($cmd) and $cmd ne 'help') {
         my $msg = "%s env var is missing. Did you forget to source novarc?\n";
         die sprintf($msg, 'NOVA_URL') unless $ENV{NOVA_URL};
         die sprintf($msg, 'NOVA_USERNAME') unless $ENV{NOVA_USERNAME};
+        die sprintf($msg, 'NOVA_PROJECT_ID') unless $ENV{NOVA_PROJECT_ID};
         die sprintf($msg, 'NOVA_PASSWORD or NOVA_API_KEY')
             unless $ENV{NOVA_PASSWORD} || $ENV{NOVA_API_KEY};
-        my $auth = Net::OpenStack::Compute::Auth->new(
+        my $compute = Net::OpenStack::Compute->new(
             auth_url   => $ENV{NOVA_URL},
             user       => $ENV{NOVA_USERNAME},
             password   => $ENV{NOVA_PASSWORD} || $ENV{NOVA_API_KEY},
             project_id => $ENV{NOVA_PROJECT_ID},
             region     => $ENV{NOVA_REGION_NAME},
         );
-        $ctx->stash->{base_url} = $auth->base_url;
-        $ctx->stash->{auth_headers} = [
-            x_auth_token => $auth->token,
-            content_type => 'application/json',
-        ];
+        $c->stash->{attack} = Net::OpenStack::Attack->new(compute => $compute);
     }
-    $ctx->stash->{num_runs} = $ctx->argv->[0] || 1;
+    $c->stash->{num_runs} = $c->argv->[0] || 1;
 }
 
-#---------- Commands ----------------------------------------------------------
-
-func create($ctx) {
-    $ctx->getopt('image|i=s');
-    my $num_runs = $ctx->argv->[0] || 1;
-    my $image = $ctx->options->{image} || get_any_image($ctx);
-    my $body = to_json {
-        server => {
-            name      => 'stackattack',
-            imageRef  => $image,
-            flavorRef => 1,
-        }
-    };
-    my @reqs = map makereq($ctx, POST => '/servers', $body), 1 .. $num_runs;
-    say "Creating $num_runs servers...";
-    return sendreqs($ctx, @reqs);
+sub create {
+    my $c = shift;
+    $c->getopt('image|i=s');
+    my $num_runs = $c->argv->[0] || 1;
+    my $attack = $c->stash->{attack};
+    my $image = $c->options->{image};
+    return "Creating $num_runs servers ...\n"
+        . _msg($attack->create_servers($num_runs, $image));
 }
 
-func delete($ctx) {
-    my $ua = LWP::UserAgent->new();
-    my $base_url = $ctx->stash->{base_url};
-    my $res = $ua->get("$base_url/servers", @{ $ctx->stash->{auth_headers} });
-
-    die "Error getting server list: " . $res->content unless $res->is_success;
-
-    my $data = from_json($res->content);
-    my @servers = grep { $_->{name} eq 'stackattack' } @{ $data->{servers} };
-    my @reqs = map { makereq($ctx, DELETE => "/servers/$_->{id}") } @servers;
-    say "Deleting " . @servers . " servers...";
-    return sendreqs($ctx, @reqs);
+sub delete {
+    my $c = shift;
+    my $attack = $c->stash->{attack};
+    my $servers = $attack->compute->get_servers(detail => 0);
+    my @servers = grep { $_->{name} eq 'stackattack' } @$servers;
+    return "Deleting " . @servers . " servers ...\n"
+        . _msg($attack->delete_servers(\@servers));
 }
 
-func bad($ctx) {
-    my $num_runs = $ctx->stash->{num_runs};
-    my @reqs = map makereq($ctx, GET => '/bad'), 1 .. $num_runs;
-    say "Sending $num_runs /bad requests...";
-    return sendreqs($ctx, @reqs);
+sub bad {
+    my $c = shift;
+    my $num_runs = $c->stash->{num_runs};
+    my $attack = $c->stash->{attack};
+    return "Sending $num_runs /bad requests..."
+        . _msg($attack->attack(GET => '/bad', $num_runs));
 }
 
-func get($ctx) {
-    my $num_runs = $ctx->stash->{num_runs};
-    my @reqs = map makereq($ctx, GET => '/servers'), 1 .. $num_runs;
-    say "Sending $num_runs /servers requests...";
-    return sendreqs($ctx, @reqs);
+sub get {
+    my $c = shift;
+    my $num_runs = $c->stash->{num_runs};
+    my $attack = $c->stash->{attack};
+    return "Sending $num_runs /servers requests..."
+        . _msg($attack->attack(GET => '/servers', $num_runs));
 }
 
-func get_images($ctx) {
-    my $num_runs = $ctx->stash->{num_runs};
-    my @reqs = map makereq($ctx, GET => '/images'), 1 .. $num_runs;
-    say "Sending $num_runs /images requests...";
-    return sendreqs($ctx, @reqs);
+sub get_images {
+    my $c = shift;
+    my $num_runs = $c->stash->{num_runs};
+    my $attack = $c->stash->{attack};
+    return "Sending $num_runs /images requests..."
+        . _msg($attack->attack(GET => '/images', $num_runs));
 }
 
-#---------- Helpers -----------------------------------------------------------
-
-func makereq($ctx, $method, $resource, $body) {
-    my $url = $ctx->stash->{base_url} . $resource;
-    my $headers = $ctx->stash->{auth_headers};
-    return HTTP::Request->new($method => $url, $headers, $body);
+sub _msg {
+    my %data = %{ shift() };
+    "Successes: $data{successes} Failures: $data{failures} Time: " . runtime();
 }
-
-func sendreqs($ctx, @reqs) {
-    my $async = HTTP::Async->new;
-    $async->add(@reqs);
-    my ($successes, $failures, @errmsgs) = (0, 0);
-    while (my $res = $async->wait_for_next_response) {
-        if ($res->is_success) {
-            $successes++;
-        } else {
-            $failures++;
-            warn sprintf "Error: %s: %s", $res->status_line, $res->content;
-        }
-    }
-
-    return "Successes: $successes Failures: $failures Time: " . runtime();
-}
-
-func get_any_image($ctx) {
-    my $ua = LWP::UserAgent->new();
-    my $base_url = $ctx->stash->{base_url};
-    my $res = $ua->get("$base_url/images", @{ $ctx->stash->{auth_headers} });
-    die "Error grabbing arbitrary image id: " . $res->content
-        unless $res->is_success;
-    return from_json($res->content)->{images}[0]{id};
-}
-
-App::Rad->run();
 
 # PODNAME: stackattack
 
