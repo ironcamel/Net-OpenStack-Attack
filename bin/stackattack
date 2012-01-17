@@ -14,7 +14,8 @@ sub setup {
     $c->register_commands({
         bad    => 'send invalid requests',
         create => 'create servers (--image|-i optional)',
-        delete => 'delete all servers created by stackattack',
+        delete =>
+            'delete all stackattack servers (--all|-a deletes ALL servers)',
         get    => 'send get servers requests',
     });
     $c->register('get-images' => \&get_images, 'send image list requests');
@@ -54,9 +55,12 @@ sub create {
 
 sub delete {
     my $c = shift;
+    $c->getopt('all|a');
     my $attack = $c->stash->{attack};
     my $servers = $attack->compute->get_servers(detail => 0);
-    my @servers = grep { $_->{name} eq 'stackattack' } @$servers;
+    my @servers = @$servers;
+    @servers = grep { $_->{name} eq 'stackattack' } @servers
+        unless $c->options->{all};
     return "Deleting " . @servers . " servers ...\n"
         . _msg($attack->delete_servers(\@servers));
 }
@@ -97,12 +101,12 @@ sub _msg {
     Usage: stackattack command [arguments]
 
     Available Commands:
-        bad         send invalid requests
-        create      create servers (--image|-i optional)
-        delete      delete all servers created by stackattack
-        get         send get servers requests
-        get-images  send image list requests
-        help        show syntax and available commands
+        bad        send invalid requests
+        create     create servers (--image|-i optional)
+        delete     delete all stackattack servers (--all|-a deletes ALL servers)
+        get        send get servers requests
+        get-images send image list requests
+        help       show syntax and available commands
 
     Examples:
 
@@ -114,6 +118,9 @@ sub _msg {
 
     # Create 10 servers with an explicit image id
     $ stackattack create -i b79cf9f9-cea9-44c7-a3ac-74a6668eb78b 10
+
+    # Delete all servers
+    $ stackattack delete -a
 
 =head1 DESCRIPTION
 
