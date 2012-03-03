@@ -32,11 +32,13 @@ sub pre_process {
         die sprintf($msg, 'NOVA_PASSWORD or NOVA_API_KEY')
             unless $ENV{NOVA_PASSWORD} || $ENV{NOVA_API_KEY};
         my $compute = Net::OpenStack::Compute->new(
-            auth_url   => $ENV{NOVA_URL},
-            user       => $ENV{NOVA_USERNAME},
-            password   => $ENV{NOVA_PASSWORD} || $ENV{NOVA_API_KEY},
-            project_id => $ENV{NOVA_PROJECT_ID},
-            region     => $ENV{NOVA_REGION_NAME},
+            auth_url     => $ENV{NOVA_URL},
+            user         => $ENV{NOVA_USERNAME},
+            password     => $ENV{NOVA_PASSWORD} || $ENV{NOVA_API_KEY},
+            project_id   => $ENV{NOVA_PROJECT_ID},
+            region       => $ENV{NOVA_REGION_NAME},
+            service_name => $ENV{NOVA_SERVICE_NAME},
+            is_rax_auth  => $ENV{NOVA_RAX_AUTH},
         );
         $c->stash->{attack} = Net::OpenStack::Attack->new(compute => $compute);
     }
