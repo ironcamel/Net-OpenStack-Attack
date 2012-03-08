@@ -1,5 +1,8 @@
 Revision history for Net-OpenStack-Attack
 
+1.0300  2012-03-08
+        Added support for https.
+
 1.0200  2012-03-03
         Added support for Rackspace (RAX) auth.
 
