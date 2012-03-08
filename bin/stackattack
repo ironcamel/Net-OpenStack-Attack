@@ -12,11 +12,13 @@ App::Rad->run();
 sub setup {
     my $c = shift;
     $c->register_commands({
-        bad    => 'send invalid requests',
-        create => 'create servers (--image|-i optional)',
-        delete =>
-            'delete all stackattack servers (--all|-a deletes ALL servers)',
-        get    => 'send get servers requests',
+        bad     => 'send invalid requests',
+        get     => 'send get servers requests',
+        create  => 'create servers [--image|-i]',
+        delete  =>
+            'delete all stackattack servers [--all|-a] (deletes ALL servers)',
+        rebuild =>
+            'rebuild all stackattack servers [--all|-a] [--image|-i]',
     });
     $c->register('get-images' => \&get_images, 'send image list requests');
 }
@@ -59,12 +61,18 @@ sub delete {
     my $c = shift;
     $c->getopt('all|a');
     my $attack = $c->stash->{attack};
-    my $servers = $attack->compute->get_servers(detail => 0);
-    my @servers = @$servers;
-    @servers = grep { $_->{name} eq 'stackattack' } @servers
-        unless $c->options->{all};
-    return "Deleting " . @servers . " servers ...\n"
-        . _msg($attack->delete_servers(\@servers));
+    my $servers = _filter_servers($c);
+    return "Deleting " . @$servers . " servers ...\n"
+        . _msg($attack->delete_servers($servers));
+}
+
+sub rebuild {
+    my $c = shift;
+    $c->getopt('all|a');
+    my $attack = $c->stash->{attack};
+    my $servers = _filter_servers($c);
+    return "Rebuilding " . @$servers . " servers ...\n"
+        . _msg($attack->rebuild_servers($servers));
 }
 
 sub bad {
@@ -96,6 +104,14 @@ sub _msg {
     "Successes: $data{successes} Failures: $data{failures} Time: " . runtime();
 }
 
+sub _filter_servers {
+    my $c = shift;
+    my $attack = $c->stash->{attack};
+    my $servers = $attack->compute->get_servers(detail => 0);
+    return $servers if $c->options->{all};
+    return [ grep { $_->{name} eq 'stackattack' } @$servers ];
+}
+
 # PODNAME: stackattack
 
 =head1 SYNOPSIS
@@ -103,12 +119,13 @@ sub _msg {
     Usage: stackattack command [arguments]
 
     Available Commands:
-        bad        send invalid requests
-        create     create servers (--image|-i optional)
-        delete     delete all stackattack servers (--all|-a deletes ALL servers)
-        get        send get servers requests
-        get-images send image list requests
-        help       show syntax and available commands
+        bad         send invalid requests
+        create      create servers [--image|-i]
+        delete      delete all stackattack servers [--all|-a] (deletes ALL servers)
+        get         send get servers requests
+        get-images  send image list requests
+        help        show syntax and available commands
+        rebuild     rebuild all stackattack servers [--all|-a] [--image|-i]
 
     Examples:
 

@@ -25,7 +25,20 @@ sub create_servers {
 
 sub delete_servers {
     my ($self, $servers) = @_;
-    my @reqs = map { $self->make_req(DELETE => "/servers/$_->{id}") } @$servers;
+    my @reqs = map $self->make_req(DELETE => "/servers/$_->{id}"), @$servers;
+    return $self->send_reqs(@reqs);
+}
+
+sub rebuild_servers {
+    my ($self, $servers, $image) = @_;
+    $image ||= $self->get_any_image();
+    my $body = to_json {
+        rebuild => {
+            imageRef  => $image,
+        }
+    };
+    my @reqs = map $self->make_req(POST => "/servers/$_->{id}/action", $body),
+        @$servers;
     return $self->send_reqs(@reqs);
 }
 
