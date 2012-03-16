@@ -1,5 +1,8 @@
 Revision history for Net-OpenStack-Attack
 
+1.0401  2012-03-16
+        Disabled ssl verification.
+
 1.0400  2012-03-08
         Added support for rebuilding servers.
 

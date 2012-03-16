@@ -41,6 +41,7 @@ sub pre_process {
             region       => $ENV{NOVA_REGION_NAME},
             service_name => $ENV{NOVA_SERVICE_NAME},
             is_rax_auth  => $ENV{NOVA_RAX_AUTH},
+            verify_ssl   => 0,
         );
         $c->stash->{attack} = Net::OpenStack::Attack->new(compute => $compute);
     }
