@@ -68,7 +68,7 @@ sub send_reqs {
             $successes++;
         } else {
             $failures++;
-            warn sprintf "Error: %s: %s", $res->status_line, $res->content;
+            warn sprintf "Error: %s: %s\n", $res->status_line, $res->content;
         }
     }
 

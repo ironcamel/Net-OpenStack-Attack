@@ -13,38 +13,42 @@ sub setup {
     my $c = shift;
     $c->register_commands({
         bad     => 'send invalid requests',
-        get     => 'send get servers requests',
+        servers => 'send get /servers requests [--detail]',
+        images  => 'send get /images requests [--detail]',
+        flavors => 'send get /flavors requests [--detail]',
         create  => 'create servers [--image|-i]',
         delete  =>
             'delete all stackattack servers [--all|-a] (deletes ALL servers)',
         rebuild =>
             'rebuild all stackattack servers [--all|-a] [--image|-i]',
     });
-    $c->register('get-images' => \&get_images, 'send image list requests');
 }
 
 sub pre_process {
     my $c = shift;
     my $cmd = $c->cmd;
-    if ($c->is_command($cmd) and $cmd ne 'help') {
-        my $msg = "%s env var is missing. Did you forget to source novarc?\n";
-        die sprintf($msg, 'NOVA_URL') unless $ENV{NOVA_URL};
-        die sprintf($msg, 'NOVA_USERNAME') unless $ENV{NOVA_USERNAME};
-        die sprintf($msg, 'NOVA_PROJECT_ID') unless $ENV{NOVA_PROJECT_ID};
-        die sprintf($msg, 'NOVA_PASSWORD or NOVA_API_KEY')
-            unless $ENV{NOVA_PASSWORD} || $ENV{NOVA_API_KEY};
-        my $compute = Net::OpenStack::Compute->new(
-            auth_url     => $ENV{NOVA_URL},
-            user         => $ENV{NOVA_USERNAME},
-            password     => $ENV{NOVA_PASSWORD} || $ENV{NOVA_API_KEY},
-            project_id   => $ENV{NOVA_PROJECT_ID},
-            region       => $ENV{NOVA_REGION_NAME},
-            service_name => $ENV{NOVA_SERVICE_NAME},
-            is_rax_auth  => $ENV{NOVA_RAX_AUTH},
-            verify_ssl   => 0,
-        );
-        $c->stash->{attack} = Net::OpenStack::Attack->new(compute => $compute);
-    }
+    return if $cmd eq 'help' or !$c->is_command($cmd);
+
+    my $msg = "%s env var is missing. Did you forget to source novarc?\n";
+    die sprintf($msg, 'NOVA_URL or OS_AUTH_URL')
+        unless $ENV{NOVA_URL} || $ENV{OS_AUTH_URL};
+    die sprintf($msg, 'NOVA_USERNAME or OS_USERNAME')
+        unless $ENV{NOVA_USERNAME} || $ENV{OS_USERNAME};
+    die sprintf($msg, 'NOVA_PASSWORD or NOVA_API_KEY or OS_PASSWORD')
+        unless $ENV{NOVA_PASSWORD} || $ENV{NOVA_API_KEY} || $ENV{OS_PASSWORD};
+    my $compute = Net::OpenStack::Compute->new(
+        auth_url     => $ENV{NOVA_URL}         || $ENV{OS_AUTH_URL},
+        user         => $ENV{NOVA_USERNAME}    || $ENV{OS_USERNAME},
+        password     => $ENV{NOVA_PASSWORD}    || $ENV{NOVA_API_KEY}
+                                               || $ENV{OS_PASSWORD},
+        project_id   => $ENV{NOVA_PROJECT_ID}  || $ENV{OS_TENANT_NAME},
+        region       => $ENV{NOVA_REGION_NAME} || $ENV{OS_AUTH_REGION},
+        service_name => $ENV{NOVA_SERVICE_NAME},
+        is_rax_auth  => $ENV{NOVA_RAX_AUTH},
+        verify_ssl   => 0,
+    );
+    $c->stash->{attack} = Net::OpenStack::Attack->new(compute => $compute);
+    $c->getopt('all|a', 'detail') or die "See help for valid options\n";
     $c->stash->{num_runs} = $c->argv->[0] || 1;
 }
 
@@ -54,55 +58,44 @@ sub create {
     my $num_runs = $c->argv->[0] || 1;
     my $attack = $c->stash->{attack};
     my $image = $c->options->{image};
-    return "Creating $num_runs servers ...\n"
-        . _msg($attack->create_servers($num_runs, $image));
+    say "Creating $num_runs servers ...";
+    return _msg($attack->create_servers($num_runs, $image));
 }
 
 sub delete {
     my $c = shift;
-    $c->getopt('all|a');
     my $attack = $c->stash->{attack};
     my $servers = _filter_servers($c);
-    return "Deleting " . @$servers . " servers ...\n"
-        . _msg($attack->delete_servers($servers));
+    say "Deleting " . @$servers . " servers ...";
+    return _msg($attack->delete_servers($servers));
 }
 
 sub rebuild {
     my $c = shift;
-    $c->getopt('all|a');
     my $attack = $c->stash->{attack};
     my $servers = _filter_servers($c);
-    return "Rebuilding " . @$servers . " servers ...\n"
-        . _msg($attack->rebuild_servers($servers));
+    say "Rebuilding " . @$servers . " servers ...";
+    return _msg($attack->rebuild_servers($servers));
 }
 
-sub bad {
-    my $c = shift;
-    my $num_runs = $c->stash->{num_runs};
-    my $attack = $c->stash->{attack};
-    return "Sending $num_runs /bad requests..."
-        . _msg($attack->attack(GET => '/bad', $num_runs));
-}
+sub bad     { _get(shift, '/bad')     }
+sub servers { _get(shift, '/servers') }
+sub images  { _get(shift, '/images')  }
+sub flavors { _get(shift, '/flavors') }
 
-sub get {
-    my $c = shift;
+sub _get {
+    my ($c, $url) = @_;
+    $url .= '/detail' if $c->options->{detail};
     my $num_runs = $c->stash->{num_runs};
     my $attack = $c->stash->{attack};
-    return "Sending $num_runs /servers requests..."
-        . _msg($attack->attack(GET => '/servers', $num_runs));
-}
-
-sub get_images {
-    my $c = shift;
-    my $num_runs = $c->stash->{num_runs};
-    my $attack = $c->stash->{attack};
-    return "Sending $num_runs /images requests..."
-        . _msg($attack->attack(GET => '/images', $num_runs));
+    say "Sending $num_runs $url requests ...";
+    return _msg($attack->attack(GET => $url, $num_runs));
 }
 
 sub _msg {
-    my %data = %{ shift() };
-    "Successes: $data{successes} Failures: $data{failures} Time: " . runtime();
+    my $data = shift;
+    return sprintf "Successes: %s Failures: %s Time: %s ",
+        $data->{successes}, $data->{failures}, runtime();
 }
 
 sub _filter_servers {

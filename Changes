@@ -1,5 +1,9 @@
 Revision history for Net-OpenStack-Attack
 
+1.0500  2012-04-11
+        Added --detail option.
+        Added flavors.
+
 1.0401  2012-03-16
         Disabled ssl verification.
 
